@@ -14,6 +14,30 @@ const Landing = () => (
       description="Plan projects, manage tasks, automate workflows, and collaborate with your team in one streamlined platform."
       path="/"
       keywords="project management, task management, workflow automation, team collaboration"
+      structuredData={[
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "TaskFlow Pro",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+          },
+          description:
+            "TaskFlow Pro helps teams organize projects, automate workflows, and collaborate in real time.",
+          url: "/",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "TaskFlow Pro",
+          url: "/",
+          logo: "/og-taskflow.png",
+        },
+      ]}
     />
     <LandingNavbar />
     <HeroSection />

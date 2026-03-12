@@ -9,6 +9,7 @@ interface SEOProps {
   type?: "website" | "article";
   keywords?: string;
   noindex?: boolean;
+  structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
 const siteName = "TaskFlow Pro";
@@ -22,6 +23,7 @@ export const SEO = ({
   type = "website",
   keywords,
   noindex = false,
+  structuredData,
 }: SEOProps) => {
   const siteUrl =
     import.meta.env.VITE_SITE_URL ||
@@ -50,6 +52,40 @@ export const SEO = ({
   const imageUrl = resolvedImage.startsWith("http") ? resolvedImage : `${siteUrl}${resolvedImage}`;
   const resolvedImageAlt = imageAlt ?? `${fullTitle} social preview image`;
 
+  const defaultStructuredData: Array<Record<string, unknown>> = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: siteName,
+      url: siteUrl,
+      description,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: fullTitle,
+      description,
+      url: canonicalUrl,
+      isPartOf: {
+        "@type": "WebSite",
+        name: siteName,
+        url: siteUrl,
+      },
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+        url: imageUrl,
+      },
+    },
+  ];
+
+  const extraStructuredData = structuredData
+    ? Array.isArray(structuredData)
+      ? structuredData
+      : [structuredData]
+    : [];
+
+  const combinedStructuredData = [...defaultStructuredData, ...extraStructuredData];
+
   return (
     <Helmet prioritizeSeoTags>
       <title>{fullTitle}</title>
@@ -72,6 +108,12 @@ export const SEO = ({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={imageUrl} />
       <meta name="twitter:image:alt" content={resolvedImageAlt} />
+
+      {combinedStructuredData.map((schema, index) => (
+        <script key={`jsonld-${index}`} type="application/ld+json">
+          {JSON.stringify(schema)}
+        </script>
+      ))}
     </Helmet>
   );
 };
