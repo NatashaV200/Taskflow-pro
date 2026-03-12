@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Zap, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -44,6 +45,7 @@ export function LandingNavbar() {
               {l.label}
             </a>
           ))}
+          <ThemeToggle />
           <Link to="/login">
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               Login
@@ -75,6 +77,10 @@ export function LandingNavbar() {
                   {l.label}
                 </a>
               ))}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
               <Link to="/login" onClick={() => setMobileOpen(false)}>
                 <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground">Login</Button>
               </Link>
