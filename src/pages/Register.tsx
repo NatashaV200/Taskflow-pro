@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Zap, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { SEO } from "@/components/SEO";
 
 const Register = () => {
   const [showPw, setShowPw] = useState(false);
@@ -16,6 +17,12 @@ const Register = () => {
 
   return (
     <div className="flex min-h-screen">
+      <SEO
+        title="Create Account"
+        description="Create your TaskFlow Pro account and start organizing projects, tasks, and team workflows."
+        path="/register"
+        noindex
+      />
       <div className="hidden w-1/2 items-center justify-center lg:flex" style={{ background: "var(--gradient-hero)" }}>
         <div className="max-w-md text-center p-12">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary glow">

@@ -8,6 +8,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SEO } from "@/components/SEO";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -23,6 +24,42 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+
+  const seoByPath: Record<string, { title: string; description: string }> = {
+    "/dashboard": {
+      title: "Dashboard Overview",
+      description: "View key project metrics, activity trends, and team performance at a glance.",
+    },
+    "/dashboard/boards": {
+      title: "Boards",
+      description: "Organize project work using Kanban-style boards and track progress by stage.",
+    },
+    "/dashboard/tasks": {
+      title: "Tasks",
+      description: "Manage, prioritize, and monitor all tasks across your active projects.",
+    },
+    "/dashboard/automation": {
+      title: "Automation",
+      description: "Configure automations to streamline repetitive work and team workflows.",
+    },
+    "/dashboard/analytics": {
+      title: "Analytics",
+      description: "Analyze team productivity, task completion trends, and project performance metrics.",
+    },
+    "/dashboard/team": {
+      title: "Team",
+      description: "Manage team members, roles, and collaboration settings for your workspace.",
+    },
+    "/dashboard/settings": {
+      title: "Settings",
+      description: "Update workspace configuration, preferences, and account settings.",
+    },
+  };
+
+  const seoConfig = seoByPath[location.pathname] ?? {
+    title: "Dashboard",
+    description: "Manage projects, tasks, and workflows in your TaskFlow Pro dashboard.",
+  };
 
   const isActive = (path: string) =>
     path === "/dashboard" ? location.pathname === path : location.pathname.startsWith(path);
@@ -58,6 +95,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <SEO title={seoConfig.title} description={seoConfig.description} path={location.pathname} noindex />
       {/* Desktop sidebar */}
       <aside
         className={`hidden border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:block ${

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Zap, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { SEO } from "@/components/SEO";
 
 const Login = () => {
   const [showPw, setShowPw] = useState(false);
@@ -17,6 +18,12 @@ const Login = () => {
 
   return (
     <div className="flex min-h-screen">
+      <SEO
+        title="Sign In"
+        description="Sign in to your TaskFlow Pro account to access dashboards, tasks, and team workflows."
+        path="/login"
+        noindex
+      />
       {/* Left panel */}
       <div className="hidden w-1/2 items-center justify-center lg:flex" style={{ background: "var(--gradient-hero)" }}>
         <div className="max-w-md text-center p-12">
