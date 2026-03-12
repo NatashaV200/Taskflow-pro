@@ -9,9 +9,12 @@ import "@fontsource/inter/latin-800.css";
 import "@fontsource/inter/latin-900.css";
 import App from "./App.tsx";
 import "./index.css";
+import { registerServiceWorker } from "./lib/registerServiceWorker";
 
 createRoot(document.getElementById("root")!).render(
 	<HelmetProvider>
 		<App />
 	</HelmetProvider>
 );
+
+registerServiceWorker();
