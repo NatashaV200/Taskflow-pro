@@ -5,6 +5,7 @@ interface SEOProps {
   description: string;
   path?: string;
   image?: string;
+  imageAlt?: string;
   type?: "website" | "article";
   keywords?: string;
   noindex?: boolean;
@@ -16,7 +17,8 @@ export const SEO = ({
   title,
   description,
   path = "/",
-  image = "/og-taskflow.png",
+  image,
+  imageAlt,
   type = "website",
   keywords,
   noindex = false,
@@ -27,9 +29,26 @@ export const SEO = ({
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const canonicalUrl = `${siteUrl}${normalizedPath}`;
-  const imageUrl = image.startsWith("http") ? image : `${siteUrl}${image}`;
   const fullTitle = title ? `${title} | ${siteName}` : siteName;
   const robotsContent = noindex ? "noindex, nofollow" : "index, follow";
+
+  const templateUrl = import.meta.env.VITE_OG_IMAGE_TEMPLATE_URL;
+  const fallbackDynamicImage = `https://dummyimage.com/1200x630/0f172a/e2e8f0.png&text=${encodeURIComponent(
+    fullTitle
+  )}`;
+
+  const dynamicImageUrl = templateUrl
+    ? templateUrl
+        .replace("{title}", encodeURIComponent(fullTitle))
+        .replace("{description}", encodeURIComponent(description))
+        .replace("{siteName}", encodeURIComponent(siteName))
+        .replace("{path}", encodeURIComponent(normalizedPath))
+        .replace("{url}", encodeURIComponent(canonicalUrl))
+    : fallbackDynamicImage;
+
+  const resolvedImage = image ?? dynamicImageUrl;
+  const imageUrl = resolvedImage.startsWith("http") ? resolvedImage : `${siteUrl}${resolvedImage}`;
+  const resolvedImageAlt = imageAlt ?? `${fullTitle} social preview image`;
 
   return (
     <Helmet prioritizeSeoTags>
@@ -46,11 +65,13 @@ export const SEO = ({
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:image" content={imageUrl} />
+      <meta property="og:image:alt" content={resolvedImageAlt} />
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={imageUrl} />
+      <meta name="twitter:image:alt" content={resolvedImageAlt} />
     </Helmet>
   );
 };
