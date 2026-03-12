@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- Light theme background -->
+  <rect width="180" height="180" rx="40" fill="#ffffff" class="light-bg"/>
+  
+  <!-- Dark theme background (hidden by default) -->
+  <rect width="180" height="180" rx="40" fill="#1a1f35" class="dark-bg" style="display:none"/>
+  
+  <!-- Gradient defs -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b7bf5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0076e8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Stylized lightning bolt / checkmark combo icon -->
+  <g transform="translate(45, 45)">
+    <!-- Vertical lightning bolt shape suggesting workflow/energy -->
+    <path d="M 45 10 L 60 35 L 40 35 L 65 75 L 25 50 L 45 50 Z" fill="url(#gradient)" opacity="0.95"/>
+    
+    <!-- Subtle checkmark accent -->
+    <path d="M 20 55 L 30 65 L 45 45" stroke="url(#gradient)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  </g>
+  
+  <!-- Accent circle behind -->
+  <circle cx="90" cy="90" r="75" fill="none" stroke="url(#gradient)" stroke-width="2" opacity="0.3"/>
+</svg>
