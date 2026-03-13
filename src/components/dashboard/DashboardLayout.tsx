@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LayoutGrid, CheckSquare, Workflow, BarChart3,
-  Users, Settings, Zap, Search, Bell, ChevronLeft, Menu, LogOut, User
+  Users, Settings, Zap, Search, Bell, ChevronLeft, Menu, LogOut, User, AtSign, ClipboardCheck
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SEO } from "@/components/SEO";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { toast } from "@/components/ui/sonner";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -21,10 +22,90 @@ const navItems = [
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 
+interface NotificationItem {
+  id: string;
+  type: "mention" | "assignment";
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
+}
+
+const liveNotificationTemplates: Omit<NotificationItem, "id" | "time" | "read">[] = [
+  {
+    type: "mention",
+    title: "@mention in Design system updates",
+    description: "Sarah Chen mentioned you: \"Can you review the new card spacing?\"",
+  },
+  {
+    type: "assignment",
+    title: "New assignment: API integration",
+    description: "Jordan Miles assigned you to implement the webhook retry logic.",
+  },
+  {
+    type: "mention",
+    title: "@mention in User dashboard",
+    description: "Elena Rivera mentioned you in a comment about KPI widgets.",
+  },
+  {
+    type: "assignment",
+    title: "New assignment: Auth flow",
+    description: "You were assigned to finalize edge-case handling for SSO login.",
+  },
+];
+
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: "seed-1",
+      type: "mention",
+      title: "@mention in Onboarding wizard",
+      description: "Elena Rivera mentioned you about first-run checklist copy.",
+      time: "just now",
+      read: false,
+    },
+    {
+      id: "seed-2",
+      type: "assignment",
+      title: "New assignment: Landing page",
+      description: "Sarah Chen assigned you to refine testimonial card spacing.",
+      time: "2m ago",
+      read: false,
+    },
+  ]);
   const location = useLocation();
+
+  useEffect(() => {
+    let templateIndex = 0;
+
+    const interval = setInterval(() => {
+      const template = liveNotificationTemplates[templateIndex % liveNotificationTemplates.length];
+      templateIndex += 1;
+
+      const nextNotification: NotificationItem = {
+        ...template,
+        id: `${Date.now()}-${templateIndex}`,
+        time: "just now",
+        read: false,
+      };
+
+      setNotifications((prev) => [nextNotification, ...prev].slice(0, 12));
+
+      toast(template.type === "mention" ? "New @mention" : "New assignment", {
+        description: template.title,
+      });
+    }, 22000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+  };
 
   const seoByPath: Record<string, { title: string; description: string }> = {
     "/dashboard": {
@@ -138,10 +219,60 @@ export default function DashboardLayout() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
-            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-96 border-border bg-card p-0">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Notifications</p>
+                    <p className="text-xs text-muted-foreground">Live @mentions and assignments</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={markAllNotificationsAsRead}>
+                    Mark all read
+                  </Button>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto p-2">
+                  {notifications.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                      No notifications yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {notifications.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`rounded-md border px-3 py-2 text-xs ${
+                            item.read ? "border-border/50 bg-background/50" : "border-primary/20 bg-primary/5"
+                          }`}
+                        >
+                          <div className="mb-1 flex items-center gap-2">
+                            {item.type === "mention" ? (
+                              <AtSign className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
+                            )}
+                            <span className="font-medium text-foreground">{item.title}</span>
+                          </div>
+                          <p className="text-muted-foreground">{item.description}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground/80">{item.time}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
