@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, Calendar, User } from "lucide-react";
+import { Plus, MoreHorizontal, Calendar, User, ArrowRightLeft, Clock3 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,15 @@ interface Task {
   priority: "Low" | "Medium" | "High";
   dueDate: string;
   column: string;
+}
+
+interface ActivityEntry {
+  id: string;
+  actor: string;
+  taskTitle: string;
+  fromColumn: string;
+  toColumn: string;
+  timestamp: string;
 }
 
 const initialTasks: Task[] = [
@@ -39,16 +48,46 @@ const priorityColors: Record<string, string> = {
   High: "bg-destructive/20 text-destructive",
 };
 
+const getColumnLabel = (columnId: string) =>
+  columns.find((c) => c.id === columnId)?.label ?? columnId;
+
 const BoardsPage = () => {
   const [tasks, setTasks] = useState(initialTasks);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
 
   const handleDragStart = (task: Task) => setDraggedTask(task);
 
   const handleDrop = (columnId: string) => {
     if (!draggedTask) return;
+
+    if (draggedTask.column === columnId) {
+      setDraggedTask(null);
+      return;
+    }
+
+    const fromColumn = draggedTask.column;
+
     setTasks(tasks.map((t) => (t.id === draggedTask.id ? { ...t, column: columnId } : t)));
+
+    setActivityLog((prev) => [
+      {
+        id: `${draggedTask.id}-${Date.now()}`,
+        actor: "JD",
+        taskTitle: draggedTask.title,
+        fromColumn: getColumnLabel(fromColumn),
+        toColumn: getColumnLabel(columnId),
+        timestamp: new Date().toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      },
+      ...prev,
+    ]);
+
     setDraggedTask(null);
   };
 
@@ -118,6 +157,42 @@ const BoardsPage = () => {
             </div>
           );
         })}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ArrowRightLeft className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold">Activity Log</h2>
+          </div>
+          <span className="text-xs text-muted-foreground">Who moved what and when</span>
+        </div>
+
+        {activityLog.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+            No activity yet. Move a task between columns to track activity.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {activityLog.slice(0, 8).map((item) => (
+              <div key={item.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-background/50 px-3 py-2">
+                <div className="min-w-0 text-sm">
+                  <span className="font-semibold text-foreground">{item.actor}</span>
+                  <span className="text-muted-foreground"> moved </span>
+                  <span className="font-medium text-foreground">{item.taskTitle}</span>
+                  <span className="text-muted-foreground"> from </span>
+                  <span className="font-medium text-foreground">{item.fromColumn}</span>
+                  <span className="text-muted-foreground"> to </span>
+                  <span className="font-medium text-foreground">{item.toColumn}</span>
+                </div>
+                <div className="ml-4 flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {item.timestamp}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Task detail modal */}
