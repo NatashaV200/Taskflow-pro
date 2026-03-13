@@ -191,7 +191,6 @@ const BoardsPage = () => {
                 <div className="space-y-2"><Label>Description</Label><Textarea placeholder="Describe the task..." className="bg-background border-border" /></div>
                 <Button className="w-full bg-primary hover:bg-primary/90">Create Task</Button>
               </div>
-            </div>
             </DialogContent>
           </Dialog>
         </div>
