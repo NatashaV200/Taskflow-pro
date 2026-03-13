@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, Calendar, User, ArrowRightLeft, Clock3, RotateCcw, RotateCw } from "lucide-react";
+import { Plus, MoreHorizontal, Calendar, User, ArrowRightLeft, Clock3, RotateCcw, RotateCw, Users, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/sonner";
 
 interface Task {
   id: string;
@@ -13,6 +14,7 @@ interface Task {
   priority: "Low" | "Medium" | "High";
   dueDate: string;
   column: string;
+  version: number;
 }
 
 interface ActivityEntry {
@@ -22,7 +24,7 @@ interface ActivityEntry {
   fromColumn: string;
   toColumn: string;
   timestamp: string;
-  action: "moved" | "undid" | "redid";
+  action: "moved" | "undid" | "redid" | "updated" | "resolved";
 }
 
 interface MoveAction {
@@ -33,15 +35,24 @@ interface MoveAction {
   toColumn: string;
 }
 
+interface ConflictState {
+  taskId: string;
+  taskTitle: string;
+  localFromColumn: string;
+  localToColumn: string;
+  remoteColumn: string;
+  remoteActor: string;
+}
+
 const initialTasks: Task[] = [
-  { id: "1", title: "Design system updates", assignee: "SC", priority: "High", dueDate: "Mar 15", column: "todo" },
-  { id: "2", title: "API integration", assignee: "JM", priority: "Medium", dueDate: "Mar 18", column: "todo" },
-  { id: "3", title: "User dashboard", assignee: "ER", priority: "High", dueDate: "Mar 12", column: "progress" },
-  { id: "4", title: "Auth flow", assignee: "SC", priority: "Medium", dueDate: "Mar 14", column: "progress" },
-  { id: "5", title: "Onboarding wizard", assignee: "JM", priority: "Low", dueDate: "Mar 16", column: "progress" },
-  { id: "6", title: "Email templates", assignee: "ER", priority: "Low", dueDate: "Mar 10", column: "review" },
-  { id: "7", title: "Landing page", assignee: "SC", priority: "High", dueDate: "Mar 8", column: "done" },
-  { id: "8", title: "Database schema", assignee: "JM", priority: "Medium", dueDate: "Mar 5", column: "done" },
+  { id: "1", title: "Design system updates", assignee: "SC", priority: "High", dueDate: "Mar 15", column: "todo", version: 0 },
+  { id: "2", title: "API integration", assignee: "JM", priority: "Medium", dueDate: "Mar 18", column: "todo", version: 0 },
+  { id: "3", title: "User dashboard", assignee: "ER", priority: "High", dueDate: "Mar 12", column: "progress", version: 0 },
+  { id: "4", title: "Auth flow", assignee: "SC", priority: "Medium", dueDate: "Mar 14", column: "progress", version: 0 },
+  { id: "5", title: "Onboarding wizard", assignee: "JM", priority: "Low", dueDate: "Mar 16", column: "progress", version: 0 },
+  { id: "6", title: "Email templates", assignee: "ER", priority: "Low", dueDate: "Mar 10", column: "review", version: 0 },
+  { id: "7", title: "Landing page", assignee: "SC", priority: "High", dueDate: "Mar 8", column: "done", version: 0 },
+  { id: "8", title: "Database schema", assignee: "JM", priority: "Medium", dueDate: "Mar 5", column: "done", version: 0 },
 ];
 
 const columns = [
@@ -67,6 +78,7 @@ const BoardsPage = () => {
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const [undoStack, setUndoStack] = useState<MoveAction[]>([]);
   const [redoStack, setRedoStack] = useState<MoveAction[]>([]);
+  const [pendingConflict, setPendingConflict] = useState<ConflictState | null>(null);
 
   const handleDragStart = (task: Task) => setDraggedTask(task);
 
@@ -91,8 +103,34 @@ const BoardsPage = () => {
   };
 
   const applyMove = (taskId: string, toColumn: string) => {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, column: toColumn } : t)));
-    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, column: toColumn } : prev));
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, column: toColumn, version: t.version + 1 } : t)));
+    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, column: toColumn, version: prev.version + 1 } : prev));
+  };
+
+  const simulateCollaboratorEdit = () => {
+    const collaborator = "SC";
+
+    const movableTasks = tasks.filter((task) => columns.some((c) => c.id !== task.column));
+    if (movableTasks.length === 0) return;
+
+    const randomTask = movableTasks[Math.floor(Math.random() * movableTasks.length)];
+    const targetColumns = columns.filter((c) => c.id !== randomTask.column);
+    const randomTarget = targetColumns[Math.floor(Math.random() * targetColumns.length)];
+
+    const remoteMove: MoveAction = {
+      taskId: randomTask.id,
+      taskTitle: randomTask.title,
+      actor: collaborator,
+      fromColumn: randomTask.column,
+      toColumn: randomTarget.id,
+    };
+
+    applyMove(randomTask.id, randomTarget.id);
+    addActivityEntry(remoteMove, "updated");
+
+    toast("Collaborator update", {
+      description: `${collaborator} moved ${randomTask.title} to ${randomTarget.label}`,
+    });
   };
 
   const handleUndo = useCallback(() => {
@@ -143,6 +181,30 @@ const BoardsPage = () => {
   const handleDrop = (columnId: string) => {
     if (!draggedTask) return;
 
+    const currentTask = tasks.find((t) => t.id === draggedTask.id);
+    if (!currentTask) {
+      setDraggedTask(null);
+      return;
+    }
+
+    if (currentTask.version !== draggedTask.version) {
+      setPendingConflict({
+        taskId: draggedTask.id,
+        taskTitle: draggedTask.title,
+        localFromColumn: draggedTask.column,
+        localToColumn: columnId,
+        remoteColumn: currentTask.column,
+        remoteActor: "SC",
+      });
+
+      toast("Conflict detected", {
+        description: `${draggedTask.title} changed during your edit. Choose how to resolve it.`,
+      });
+
+      setDraggedTask(null);
+      return;
+    }
+
     if (draggedTask.column === columnId) {
       setDraggedTask(null);
       return;
@@ -166,6 +228,39 @@ const BoardsPage = () => {
     setDraggedTask(null);
   };
 
+  const resolveConflictKeepMine = () => {
+    if (!pendingConflict) return;
+
+    const moveAction: MoveAction = {
+      taskId: pendingConflict.taskId,
+      taskTitle: pendingConflict.taskTitle,
+      actor: "JD",
+      fromColumn: pendingConflict.remoteColumn,
+      toColumn: pendingConflict.localToColumn,
+    };
+
+    applyMove(pendingConflict.taskId, pendingConflict.localToColumn);
+    addActivityEntry(moveAction, "resolved");
+    setUndoStack((prev) => [...prev, moveAction]);
+    setRedoStack([]);
+    setPendingConflict(null);
+  };
+
+  const resolveConflictAcceptTheirs = () => {
+    if (!pendingConflict) return;
+
+    const acceptAction: MoveAction = {
+      taskId: pendingConflict.taskId,
+      taskTitle: pendingConflict.taskTitle,
+      actor: "JD",
+      fromColumn: pendingConflict.localToColumn,
+      toColumn: pendingConflict.remoteColumn,
+    };
+
+    addActivityEntry(acceptAction, "resolved");
+    setPendingConflict(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -174,6 +269,9 @@ const BoardsPage = () => {
           <p className="text-sm text-muted-foreground">Manage your project workflow</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={simulateCollaboratorEdit} className="gap-2">
+            <Users className="h-4 w-4" /> Simulate teammate edit
+          </Button>
           <Button variant="outline" onClick={handleUndo} disabled={undoStack.length === 0} className="gap-2">
             <RotateCcw className="h-4 w-4" /> Undo
           </Button>
@@ -261,7 +359,7 @@ const BoardsPage = () => {
               <div key={item.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-background/50 px-3 py-2">
                 <div className="min-w-0 text-sm">
                   <span className="font-semibold text-foreground">{item.actor}</span>
-                  <span className="text-muted-foreground"> {item.action} </span>
+                  <span className="text-muted-foreground"> {item.action === "updated" ? "updated" : item.action === "resolved" ? "resolved" : item.action} </span>
                   <span className="font-medium text-foreground">{item.taskTitle}</span>
                   <span className="text-muted-foreground"> from </span>
                   <span className="font-medium text-foreground">{item.fromColumn}</span>
@@ -319,6 +417,39 @@ const BoardsPage = () => {
                 </div>
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingConflict} onOpenChange={() => setPendingConflict(null)}>
+        <DialogContent className="max-w-lg border-border bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              Edit conflict detected
+            </DialogTitle>
+          </DialogHeader>
+          {pendingConflict && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {pendingConflict.remoteActor} moved <span className="font-medium text-foreground">{pendingConflict.taskTitle}</span>
+                {" "}to <span className="font-medium text-foreground">{getColumnLabel(pendingConflict.remoteColumn)}</span>
+                {" "}while you were moving it to <span className="font-medium text-foreground">{getColumnLabel(pendingConflict.localToColumn)}</span>.
+              </p>
+
+              <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                Choose which version to keep. Your choice will be added to activity log.
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" onClick={resolveConflictAcceptTheirs}>
+                  Keep teammate change
+                </Button>
+                <Button className="bg-primary hover:bg-primary/90" onClick={resolveConflictKeepMine}>
+                  Keep my change
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
