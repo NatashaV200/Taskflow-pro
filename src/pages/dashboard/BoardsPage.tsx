@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, MoreHorizontal, Calendar, User, ArrowRightLeft, Clock3, RotateCcw, RotateCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -95,7 +95,7 @@ const BoardsPage = () => {
     setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, column: toColumn } : prev));
   };
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     const lastAction = undoStack[undoStack.length - 1];
     if (!lastAction) return;
 
@@ -104,9 +104,9 @@ const BoardsPage = () => {
 
     setUndoStack((prev) => prev.slice(0, -1));
     setRedoStack((prev) => [...prev, lastAction]);
-  };
+  }, [undoStack]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     const lastRedo = redoStack[redoStack.length - 1];
     if (!lastRedo) return;
 
@@ -115,7 +115,7 @@ const BoardsPage = () => {
 
     setRedoStack((prev) => prev.slice(0, -1));
     setUndoStack((prev) => [...prev, lastRedo]);
-  };
+  }, [redoStack]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -125,12 +125,12 @@ const BoardsPage = () => {
       const isUndo = event.key.toLowerCase() === "z" && !event.shiftKey;
       const isRedo = event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey);
 
-      if (isUndo && undoStack.length > 0) {
+      if (isUndo) {
         event.preventDefault();
         handleUndo();
       }
 
-      if (isRedo && redoStack.length > 0) {
+      if (isRedo) {
         event.preventDefault();
         handleRedo();
       }
@@ -138,7 +138,7 @@ const BoardsPage = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undoStack, redoStack]);
+  }, [handleUndo, handleRedo]);
 
   const handleDrop = (columnId: string) => {
     if (!draggedTask) return;
