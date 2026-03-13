@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, Calendar, User, ArrowRightLeft, Clock3 } from "lucide-react";
+import { Plus, MoreHorizontal, Calendar, User, ArrowRightLeft, Clock3, RotateCcw, RotateCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,15 @@ interface ActivityEntry {
   fromColumn: string;
   toColumn: string;
   timestamp: string;
+  action: "moved" | "undid" | "redid";
+}
+
+interface MoveAction {
+  taskId: string;
+  taskTitle: string;
+  actor: string;
+  fromColumn: string;
+  toColumn: string;
 }
 
 const initialTasks: Task[] = [
@@ -56,8 +65,80 @@ const BoardsPage = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
+  const [undoStack, setUndoStack] = useState<MoveAction[]>([]);
+  const [redoStack, setRedoStack] = useState<MoveAction[]>([]);
 
   const handleDragStart = (task: Task) => setDraggedTask(task);
+
+  const addActivityEntry = (entry: MoveAction, action: ActivityEntry["action"]) => {
+    setActivityLog((prev) => [
+      {
+        id: `${entry.taskId}-${Date.now()}-${action}`,
+        actor: entry.actor,
+        taskTitle: entry.taskTitle,
+        fromColumn: getColumnLabel(entry.fromColumn),
+        toColumn: getColumnLabel(entry.toColumn),
+        timestamp: new Date().toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+        action,
+      },
+      ...prev,
+    ]);
+  };
+
+  const applyMove = (taskId: string, toColumn: string) => {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, column: toColumn } : t)));
+    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, column: toColumn } : prev));
+  };
+
+  const handleUndo = () => {
+    const lastAction = undoStack[undoStack.length - 1];
+    if (!lastAction) return;
+
+    applyMove(lastAction.taskId, lastAction.fromColumn);
+    addActivityEntry(lastAction, "undid");
+
+    setUndoStack((prev) => prev.slice(0, -1));
+    setRedoStack((prev) => [...prev, lastAction]);
+  };
+
+  const handleRedo = () => {
+    const lastRedo = redoStack[redoStack.length - 1];
+    if (!lastRedo) return;
+
+    applyMove(lastRedo.taskId, lastRedo.toColumn);
+    addActivityEntry(lastRedo, "redid");
+
+    setRedoStack((prev) => prev.slice(0, -1));
+    setUndoStack((prev) => [...prev, lastRedo]);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMod = event.ctrlKey || event.metaKey;
+      if (!isMod) return;
+
+      const isUndo = event.key.toLowerCase() === "z" && !event.shiftKey;
+      const isRedo = event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey);
+
+      if (isUndo && undoStack.length > 0) {
+        event.preventDefault();
+        handleUndo();
+      }
+
+      if (isRedo && redoStack.length > 0) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undoStack, redoStack]);
 
   const handleDrop = (columnId: string) => {
     if (!draggedTask) return;
@@ -68,25 +149,19 @@ const BoardsPage = () => {
     }
 
     const fromColumn = draggedTask.column;
+    const moveAction: MoveAction = {
+      taskId: draggedTask.id,
+      taskTitle: draggedTask.title,
+      actor: "JD",
+      fromColumn,
+      toColumn: columnId,
+    };
 
-    setTasks(tasks.map((t) => (t.id === draggedTask.id ? { ...t, column: columnId } : t)));
+    applyMove(draggedTask.id, columnId);
+    addActivityEntry(moveAction, "moved");
 
-    setActivityLog((prev) => [
-      {
-        id: `${draggedTask.id}-${Date.now()}`,
-        actor: "JD",
-        taskTitle: draggedTask.title,
-        fromColumn: getColumnLabel(fromColumn),
-        toColumn: getColumnLabel(columnId),
-        timestamp: new Date().toLocaleString([], {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      },
-      ...prev,
-    ]);
+    setUndoStack((prev) => [...prev, moveAction]);
+    setRedoStack([]);
 
     setDraggedTask(null);
   };
@@ -98,19 +173,28 @@ const BoardsPage = () => {
           <h1 className="text-2xl font-bold">Boards</h1>
           <p className="text-sm text-muted-foreground">Manage your project workflow</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-primary hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Task</Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border">
-            <DialogHeader><DialogTitle>Create New Task</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2"><Label>Title</Label><Input placeholder="Task title" className="bg-background border-border" /></div>
-              <div className="space-y-2"><Label>Description</Label><Textarea placeholder="Describe the task..." className="bg-background border-border" /></div>
-              <Button className="w-full bg-primary hover:bg-primary/90">Create Task</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleUndo} disabled={undoStack.length === 0} className="gap-2">
+            <RotateCcw className="h-4 w-4" /> Undo
+          </Button>
+          <Button variant="outline" onClick={handleRedo} disabled={redoStack.length === 0} className="gap-2">
+            <RotateCw className="h-4 w-4" /> Redo
+          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="gap-2 bg-primary hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Task</Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader><DialogTitle>Create New Task</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2"><Label>Title</Label><Input placeholder="Task title" className="bg-background border-border" /></div>
+                <div className="space-y-2"><Label>Description</Label><Textarea placeholder="Describe the task..." className="bg-background border-border" /></div>
+                <Button className="w-full bg-primary hover:bg-primary/90">Create Task</Button>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -178,7 +262,7 @@ const BoardsPage = () => {
               <div key={item.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-background/50 px-3 py-2">
                 <div className="min-w-0 text-sm">
                   <span className="font-semibold text-foreground">{item.actor}</span>
-                  <span className="text-muted-foreground"> moved </span>
+                  <span className="text-muted-foreground"> {item.action} </span>
                   <span className="font-medium text-foreground">{item.taskTitle}</span>
                   <span className="text-muted-foreground"> from </span>
                   <span className="font-medium text-foreground">{item.fromColumn}</span>
