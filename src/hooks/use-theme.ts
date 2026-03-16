@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AppTheme = "light" | "dark" | "system";
 const STORAGE_KEY = "taskflow-theme";
@@ -50,9 +50,9 @@ export function useThemeSwitch() {
     setThemeState(value);
   };
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setThemeState(activeTheme === "dark" ? "light" : "dark");
-  };
+  }, [activeTheme]);
 
   return useMemo(
     () => ({
