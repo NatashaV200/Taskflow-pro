@@ -66,6 +66,6 @@ export function useThemeSwitch() {
       setSystem: () => setTheme("system"),
       toggleTheme,
     }),
-    [mounted, theme, activeTheme, isDark]
+    [mounted, theme, activeTheme, isDark, toggleTheme]
   );
 }
